@@ -205,12 +205,14 @@ fi
 ##########################################################################################
 
 echo "--> Installation of percona-server-server-56"
-sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A
+#sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A
+sudo sh -c 'wget -O - http://www.percona.com/redir/downloads/RPM-GPG-KEY-percona | gpg --import'
+sudo sh -c 'gpg --armor --export 1C4CBDCDCD2EFD2A | apt-key add -'
 sudo sh -c 'echo "deb http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list'
 sudo sh -c 'echo "deb-src http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list'
 
 sudo apt-get update
-echo "--> Set "vagrant" as root password for mysql"
+echo "--> Set 'vagrant' as root password for mysql"
 sudo sh -c 'echo "percona-server-server-5.6 percona-server-server/root_password password vagrant" | debconf-set-selections'
 sudo sh -c 'echo "percona-server-server-5.6 percona-server-server/root_password_again password vagrant" | debconf-set-selections'
 sudo apt-get install -y --force-yes percona-server-server-5.6 percona-server-client-5.6
