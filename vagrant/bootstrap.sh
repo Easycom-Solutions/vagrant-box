@@ -751,9 +751,9 @@ if [[ $_install_mysql_server_ = 'yes' ]]; then
 		mysql -u root -p$_mysql_root_password_ -e "GRANT ALL PRIVILEGES ON $_mysql_dbname_.* TO '$_mysql_dbuser_'@'%' IDENTIFIED BY '$_mysql_dbpass_'"
 		mysql -u root -p$_mysql_root_password_ -e "FLUSH PRIVILEGES"
 
-		if [[ -f /vagrant/vagrant/sql/localdb.sql ]]; then
+		if [[ -f /vagrant/sql/localdb.sql ]]; then
 			echo "--> Import existing database to our project"
-			mysql -u root -p$_mysql_root_password_ ${_mysql_dbname_} < /vagrant/vagrant/sql/localdb.sql
+			mysql -u root -p$_mysql_root_password_ ${_mysql_dbname_} < /vagrant/sql/localdb.sql
 		fi
 
 	fi
@@ -949,7 +949,7 @@ EOF
 	fi
 
 	echo "-> copy of the index of the server to grant access to tools"
-	sudo cp /vagrant/vagrant/index.html /var/www/default/
+	sudo cp $(dirname $(sudo find / -name 'bootstrap.sh'))/index.html /var/www/default/
 
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of apache"
