@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tools Home</title>
+    <link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
+    <link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootswatch/3.3.2/cyborg/bootstrap.min.css" />
+	<style type="text/css">
+    html,
+    body {
+      height: 100%;
+      overflow-x: hidden; /* Prevent scroll on narrow devices */
+    }
+
+    .button-toggle {
+    float: right;
+    }
+
+    .sidebar {
+    	width:20px;
+    }
+    .sidebar.active {
+    	width:200px;
+    }
+    .sidebar .hide-bar, .sidebar .list-group
+    {
+      display: none;
+    }
+    .sidebar.active .hide-bar {
+      display: inline-block;
+    }
+    .sidebar.active .list-group{
+      display: block;
+    }
+
+    span.toolbar{
+        -ms-transform: rotate(-90deg); /* IE 9 */
+        -webkit-transform: rotate(-90deg); /* Chrome, Safari, Opera */
+        transform: rotate(-90deg);
+        width: 40px;
+        display: block;
+        font-size: 20px;
+        margin-top: 50px;
+    }
+    .sidebar.active span.toolbar {display: none;}
+
+</style>
+</head>
+<body>
+  <div <div style="height:100%;">
+  	<div id="sidebar" class="sidebar active" style="background:black;float:left;  height:100%; padding:10px;">
+  			<button type="button" class="btn btn-default button-toggle" data-toggle="sidebar">
+  				<span class="glyphicon glyphicon-chevron-left"></span>
+          <span class="hide-bar">Masquer la barre</span>
+  			</button>
+        <br/><br/><br/>
+        <span class="toolbar">TOOLS</span>
+        <div class="list-group">
+          <a href="tools/info.php" class="list-group-item active">info.php</a>
+          <a href="tools/opcache/" class="list-group-item">Opcache</a>
+          <a href="tools/phpmyadmin/" class="list-group-item">PhpMyAdmin</a>
+          <a href="http://www:1080/" target="_blank" class="list-group-item">Mailcatcher</a>
+          <a href="tools/pagespeed_global_admin/" class="list-group-item">Pagespeed</a>
+          <a href="tools/webgrind" class="list-group-item">Webgrind</a>
+          <a href="http://redis:8081/" class="list-group-item">Redis Commander</a>
+          <a href="http://solr:8080/solr-local-project" class="list-group-item">Apache Solr</a>
+          <a href="tools/memcached/" class="list-group-item">Memcached</a>
+        </div>
+  	</div>
+  	<div id="content" style="background:#2a9fd6; float:left; height:100%;">
+
+  	</div>
+  </div>
+
+
+
+  <script type="text/javascript" src="//code.jquery.com/jquery-1.11.2.min.js"></script>
+  <script type="text/javascript" src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+  <script type="text/javascript">
+  	$(document).ready(function () {
+      
+  	  $('[data-toggle="sidebar"]').click(function () {
+  			$('.sidebar').toggleClass('active');
+  			$(this).children('span').toggleClass('glyphicon-chevron-right');
+        on_resize();
+  	  });
+
+      $(".list-group a[target!='_blank']").click(function(){
+        var ifram = $('<iframe />');
+        ifram.css("height", "100%");
+        ifram.css("border", "0px");
+        ifram.css("background", "white");
+        ifram.attr("src", $(this).attr("href"));
+        $("#content").html("").append(ifram);
+        on_resize();
+        return false;
+      });
+
+      $(window).resize(on_resize);
+      function on_resize(){
+        $('iframe, #content').css("width", ($(document).width() - $("#sidebar").width() -20) + "px");
+      }
+
+      on_resize();
+      $(".list-group a").first().click();
+
+  	});
+  </script>
+	
+</body>
+</html>

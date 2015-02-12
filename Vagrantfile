@@ -16,35 +16,127 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.memory = 1024
   	v.cpus = 2
   end
-  
-  # Forwards port from the host to the guest and other network conf
-  #config.vm.network "forwarded_port", guest: 80, host: 8080
-  config.vm.network "private_network", type: "dhcp"
-  #config.vm.network "public_network"
-  
-  config.vm.provision :shell, inline: 'sudo mkdir -p /var/www'
-  
-  # Enable the shared folder to be synced by rsync > use vagrant rsync-auto 
-  # command to enable the automatic transfer of files from the host to the guest
-  config.vm.synced_folder "./htdocs", "/var/www/htdocs", 
-  	type: "rsync", 
-  	rsync__auto: true,
-  	rsync__args: ["--verbose", "--archive", "--delete", "--compress"]
+
+	config.vm.define "bdd1" do |server|
+        server.vm.network :private_network, :ip => '192.168.120.22'
+        server.vm.hostname = "bdd1"
+        server.hostmanager.aliases = "redis solr"
+        _args="
+            --install-mysql-server=yes
+            --install-redis=yes
+            --install-solr=yes
+            --install-redis-commander=yes
+            --install-memcached=yes
+
+            --mysql-root-password=vagrant
+            --mysql-allow-remote=yes
+            --mysql-allow-remote-root=yes
+            --mysql-createdb=yes
+            --mysql-dbname=localdb
+            --mysql-dbuser=localdb_user
+            --mysql-dbpass=localdb_user_pass
+
+            --redis-port=6380
+            --redis-usage=cache
+            --redis-max-memory=256
+
+            --memcached-port=11211
+            --memcached-max-memory=64
+
+            --solr-version=4.10.3
+            --solr-instance=local-project
+            --tomcat-port=8080
+            --tomcat-admin-login=root
+            --tomcat-admin-password=vagrant
+        "
+        server.vm.provision :shell, path: "./vagrant/bootstrap.sh", args: _args.gsub(/\s+/, " ").strip
+
+        _args="
+            --install-redis=yes
+            --install-memcached=yes
+
+            --redis-port=6381
+            --redis-usage=session
+
+            --memcached-port=11212
+            --memcached-max-memory=96
+        "
+        server.vm.provision :shell, path: "./vagrant/bootstrap.sh", args: _args.gsub(/\s+/, " ").strip
+    end
+
+	config.vm.define "www" do |server|
+        server.vm.network :private_network, :ip => '192.168.120.21'
+      	server.vm.hostname = "www"
+        server.vm.provision :shell, inline: 'sudo mkdir -p /var/www'        
+        server.vm.synced_folder "./htdocs", "/var/www/htdocs", type: "nfs"
+        
+        _args="
+            --install-apache=yes
+            --install-php=yes
+            --install-phpmyadmin=yes
+            --install-mailcatcher=yes
+            --install-pagespeed=yes
+            --install-ffmpeg=no
+
+            --php-version=php56
+            --php-opcache-memory=128
+            --php-opcache-max-accelerated-files=12000
+            --php-install-xdebug=yes
+            --php-install-redis=yes
+            --php-install-memcache=yes
+
+            --php-install-composer=yes
+            --php-install-drush=yes
+            --php-install-drush-version=6.5.0
+            --php-install-n98magerun=yes
+            --php-install-wpcli=yes
+
+            --apache-port=80
+            --apache-port-ssl=443
+            --apache-tools-secure=no
+            --apache-localhost-aliases='www.local front.local'
+            --apache-localhost-forcessl=no
+
+            --phpmyadmin-server-ip=bdd1
+            --phpmyadmin-server-port=3306
+            --phpmyadmin-server-user=root
+            --phpmyadmin-server-password=vagrant
+            --phpmyadmin-auth-type=config
+        "
+        server.vm.provision :shell, path: "./vagrant/bootstrap.sh", args: _args.gsub(/\s+/, " ").strip
+        server.hostmanager.aliases = "www.local"
+	end
+
+    config.vm.define "front" do |server|
+        server.vm.network :private_network, :ip => '192.168.120.20'
+        server.vm.hostname = "front"
+        _args="
+            --install-varnish=yes 
+            --varnish-listen-port=8080 
+            --varnish-admin-listen=0.0.0.0 
+            --varnish-admin-port=6082 
+            --varnish-backend-ip=www 
+            --varnish-backend-port=80 
+            --varnish-storage-size=1G    
+
+            --install-pound=yes
+            --pound-force-ssl=yes
+            --pound-force-ssl-domain=front.local
+            --pound-http-port=80
+            --pound-https-port=443
+            --pound-backend-ip=127.0.0.1
+            --pound-backend-port=8080        
+        "
+        server.vm.provision :shell, path: "./vagrant/bootstrap.sh", args: _args.gsub(/\s+/, " ").strip
+        server.hostmanager.aliases = "front.local"
+    end
 
 
-    config.vm.define "php54" do |php54|
-      php54.vm.provision :shell, path: "./vagrant/install-simple-lamp.sh", args: "php54 128 12000 y"
-      php54.vm.network "forwarded_port", guest: 80, host: 8080
-    end 
-    config.vm.define "php55" do |php55|
-      php55.vm.provision :shell, path: "./vagrant/install-simple-lamp.sh", args: "php55 128 12000 y", keep_color: false
-      php55.vm.network "forwarded_port", guest: 80, host: 8081
-    end 
-    config.vm.define "php56" do |php56|
-      php56.vm.provision :shell, path: "./vagrant/install-simple-lamp.sh", args: "php56 128 12000 y"
-      php56.vm.network "forwarded_port", guest: 80, host: 8082
-    end 
-
-    # config.vm.provision :shell, path: "../install-apache.sh", args: "php56"
- 
+	if Vagrant.has_plugin?('vagrant-hostmanager')
+		config.hostmanager.enabled = false
+		config.vm.provision :hostmanager
+  		config.hostmanager.manage_host = true
+  		config.hostmanager.ignore_private_ip = false
+  		config.hostmanager.include_offline = true
+	end
 end
