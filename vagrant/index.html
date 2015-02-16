@@ -60,13 +60,13 @@
         <div class="list-group">
           <a href="tools/info.php" class="list-group-item active">info.php</a>
           <a href="tools/opcache/" class="list-group-item">Opcache</a>
-          <a href="tools/phpmyadmin/" class="list-group-item">PhpMyAdmin</a>
-          <a href="http://www:1080/" target="_blank" class="list-group-item">Mailcatcher</a>
-          <a href="tools/pagespeed_global_admin/" class="list-group-item">Pagespeed</a>
-          <a href="tools/webgrind" class="list-group-item">Webgrind</a>
-          <a href="http://redis:8081/" class="list-group-item">Redis Commander</a>
-          <a href="http://solr:8080/solr-local-project" class="list-group-item">Apache Solr</a>
-          <a href="tools/memcached/" class="list-group-item">Memcached</a>
+          <!--__phpmyadmin__ <a href="tools/phpmyadmin/" class="list-group-item">PhpMyAdmin</a>__phpmyadmin__-->
+          <!--__mailcatcher__<a href="__mailcatcher_url__" target="_blank" class="list-group-item">Mailcatcher</a>__mailcatcher__-->
+          <!--__pagespeed__<a href="tools/pagespeed_global_admin/" class="list-group-item">Pagespeed</a>__pagespeed__-->
+          <!--__webgrind__<a href="tools/webgrind" class="list-group-item">Webgrind</a>__webgrind__-->
+          <!--__redis_commander__<a href="__redis_commander_url__" class="list-group-item">Redis Commander</a>__redis_commander__-->
+          <!--__solr_instance__<a href="__solr_instance_url__" class="list-group-item">Apache Solr</a>__solr_instance__-->
+          <!--__memcached__<a href="tools/memcached/" class="list-group-item">Memcached</a>__memcached__-->
         </div>
   	</div>
   	<div id="content" style="background:#2a9fd6; float:left; height:100%;">
@@ -88,6 +88,8 @@
   	  });
 
       $(".list-group a[target!='_blank']").click(function(){
+	    $(".list-group a").removeClass('active');
+	    $(this).addClass('active');
         var ifram = $('<iframe />');
         ifram.css("height", "100%");
         ifram.css("border", "0px");

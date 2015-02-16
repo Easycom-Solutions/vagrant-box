@@ -96,7 +96,8 @@ where options are :
 	${bold}--redis-commander-server-host${normal} 	: TODO // not implemented
 	${bold}--redis-commander-port${normal}		: (default: 8081)
 	${bold}--redis-commander-listen${normal}	: (default: 0.0.0.0)
-
+	${bold}--redis-commander-url${normal}		: required to enable entry in index.html file
+	
 	${green}Required arguments if '--install-memcached=yes'${normal}
 	${bold}--memcached-port${normal} 		: required, define the port used by memcached instance (ex : 11211)
 	${bold}--memcached-max-memory${normal}	: (integer - optionnal), this argument will allow to limit memory usage (ex : 64 for 64mb)
@@ -110,11 +111,12 @@ where options are :
 	${bold}--varnish-storage-size${normal}	: size like 1G or percentage of free memory like 90%
 
 	${green}Required arguments if '--install-solr=yes'${normal}
-	${bold}--solr-version${normal} 	: (default: 4.10.3)
+	${bold}--solr-version${normal} 		: (default: 4.10.3)
 	${bold}--solr-instance${normal} 	: required string value (ex : default, magento, drupal, etc)
-	${bold}--tomcat-port${normal} 	: (default: 8080)
+	${bold}--solr-instance-url${normal} 	:  required to enable entry in index.html file
+	${bold}--tomcat-port${normal} 		: (default: 8080)
 	${bold}--tomcat-admin-login${normal} 	: required
-	${bold}--tomcat-admin-password${normal} 	: required
+	${bold}--tomcat-admin-password${normal} : required
 
 	${green}Required arguments if '--install-pound=yes'${normal}
 	${bold}--pound-force-ssl${normal} 		: yes/no statement, default no
@@ -123,8 +125,6 @@ where options are :
 	${bold}--pound-https-port${normal} 		: (default: 443)
 	${bold}--pound-backend-ip${normal} 		: (default: 127.0.0.1)
 	${bold}--pound-backend-port${normal} 		: (default: 8080)
-
-	${green}Arguments to tell if a service will be installed by the script${normal}
 
 EOF
 )
@@ -320,6 +320,9 @@ do
 		--redis-commander-listen=*)
 			_redis_commander_listen_="${i#*=}"
 			shift;;
+		--redis-commander-url=*)
+			_redis_commander_url_="${i#*=}"
+			shift;;
 
 		--memcached-port=*)
 			_memcached_port_="${i#*=}"
@@ -352,6 +355,9 @@ do
 			shift;;
 		--solr-instance=*)
 			_solr_instance_="${i#*=}"
+			shift;;
+		--solr-instance-url=*)
+			_solr_instance_url_="${i#*=}"
 			shift;;
 		--tomcat-port=*)
 			_tomcat_port_="${i#*=}"
@@ -913,7 +919,7 @@ EOF
 )
 		sudo echo "$file" > ./localhost
 		sudo mkdir -p  /vagrant/conf/apache
-		sudo cp /etc/apache2/sites-available/localhost  /vagrant/conf/apache/localhost.vhost.sample
+		sudo cp ./localhost /vagrant/conf/apache/localhost.vhost.sample
 	fi
 	
 	# Replace the tag for apache listened port by the correct value
@@ -947,9 +953,6 @@ EOF
 		htpasswd -cb .htpasswd $_apache_tools_username_ $_apache_tools_pass_
 		sudo mv .htpasswd /var/www/default/tools/
 	fi
-
-	echo "-> copy of the index of the server to grant access to tools"
-	sudo cp $(dirname $(sudo find / -name 'bootstrap.sh'))/index.html /var/www/default/
 
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of apache"
@@ -1059,6 +1062,9 @@ EOF
 	echo "-> Create the phpinfo file under 'tools' path"
 	sudo sh -c 'echo "<?php phpinfo(); ?>" >> /var/www/default/tools/info.php'
 	
+	echo "-> copy of the index of the server to grant access to tools"
+	sudo cp $(dirname $(sudo find / -name 'bootstrap.sh'))/index.html /var/www/default/
+	
 	sudo service php5-fpm restart
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of php"
@@ -1098,6 +1104,10 @@ EOF
 	sudo apt-get install -y python graphviz
 	sudo ln -s /usr/bin/dot /usr/local/bin/dot
 	
+	echo "-> Enable webgrind entry to index.html"
+	sudo sed -i "s/<\!--__webgrind__/ /" /var/www/default/index.html
+	sudo sed -i "s/__webgrind__-->//" /var/www/default/index.html
+	
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of xdebug"
 fi
@@ -1131,6 +1141,10 @@ if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_memcache_ = 'yes' ]]; then
 		sudo mkdir -p /vagrant/conf/memcached
 		sudo cp /var/www/default/tools/memcached/Config/Memcache.php /vagrant/conf/memcached/Memcache.php.sample
 	fi
+
+	echo "-> Enable mailcatcher entry to index.html"
+	sudo sed -i "s/<\!--__memcached__/ /" /var/www/default/index.html
+	sudo sed -i "s/__memcached__-->//" /var/www/default/index.html
 
 	sudo service php5-fpm restart
 	echo "-> ------------------------------------------------------------------"
@@ -1234,6 +1248,11 @@ if [[ $_install_mailcatcher_ = 'yes' ]]; then
 	sudo sed -i "s,\"exit X\",\"exit 0\"," /etc/rc.local
 	/etc/rc.local
 	
+	echo "-> Enable mailcatcher entry to index.html"
+	sudo sed -i "s/<\!--__mailcatcher__/ /" /var/www/default/index.html
+	sudo sed -i "s/__mailcatcher__-->//" /var/www/default/index.html
+	sudo sed -i "s,__mailcatcher_url__,http://$(cat /etc/hostname):1080," /var/www/default/index.html
+	
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of mailcatcher"
 fi
@@ -1266,6 +1285,11 @@ EOF
 	)
 	sudo echo "$file" > pagespeed.conf.vhost-default 
 	sudo mv pagespeed.conf.vhost-default /etc/apache2/conf.d/
+	
+	echo "-> Enable pagespeed entry to index.html"
+	sudo sed -i "s/<\!--__pagespeed__/ /" /var/www/default/index.html
+	sudo sed -i "s/__pagespeed__-->//" /var/www/default/index.html
+	
 	sudo service apache2 restart
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of pagespeed for apache"
@@ -1330,6 +1354,10 @@ if [[ $_install_phpmyadmin_ = 'yes' ]] && [[ $_install_php_ = 'yes' ]]; then
 	if [[ $_phpmyadmin_auth_type_ = "config" ]]; then
 		sudo sed -i "s,'cookie';,'config';\n    \$cfg['Servers'][\$i]['user'] = '${_phpmyadmin_server_user_}';\n    \$cfg['Servers'][\$i]['password'] = '${_phpmyadmin_server_password_}';\n," /etc/phpmyadmin/config.inc.php
 	fi
+	
+	echo "-> Enable phpmyadmin entry to index.html"
+	sudo sed -i "s/<\!--__phpmyadmin__/ /" /var/www/default/index.html
+	sudo sed -i "s/__phpmyadmin__-->//" /var/www/default/index.html
 	
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of phpmyadmin"
@@ -1644,7 +1672,7 @@ EOF
 	sudo echo "$file" > pound.cfg
 
 	if [[ $_pound_force_ssl_ = 'yes' ]]; then
-		_pound_http_="ListenHTTP\n\tAddress  0.0.0.0\n\tPort $_pound_http_port_\n\tService\n\t\tHeadRequire 'Host: front.local'\n\t\tRedirect 'https://front.local'\n\tEnd\nEnd"
+		_pound_http_="ListenHTTP\n\tAddress  0.0.0.0\n\tPort $_pound_http_port_\n\tService\n\t\tHeadRequire \"Host: $_pound_force_ssl_domain_\"\n\t\tRedirect 301 \"https://$_pound_force_ssl_domain_\"\n\tEnd\nEnd"
 		sudo sed -i "s,### ListenHTTP ###,$_pound_http_," pound.cfg
 	fi
 	
@@ -1656,6 +1684,20 @@ EOF
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of pound"
 
+fi
+
+if [[ ! $_redis_commander_url_ = '' ]]; then
+    echo "-> Enable redis_commander entry to index.html"
+    sudo sed -i "s/<\!--__redis_commander__/ /" /var/www/default/index.html
+    sudo sed -i "s/__redis_commander__-->//" /var/www/default/index.html
+    sudo sed -i "s,__redis_commander_url__,$_redis_commander_url_," /var/www/default/index.html
+fi
+
+if [[ ! $_solr_instance_url_ = '' ]] ; then
+    echo "-> Enable solr entry to index.html"
+    sudo sed -i "s/<\!--__solr_instance__/ /" /var/www/default/index.html
+    sudo sed -i "s/__solr_instance__-->//" /var/www/default/index.html
+    sudo sed -i "s,__solr_instance_url__,$_solr_instance_url_," /var/www/default/index.html
 fi
 
 exit 0
