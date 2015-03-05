@@ -822,8 +822,8 @@ if [[ $_install_apache_ = 'yes' ]]; then
 		AllowOverride None
 	</Directory>
 
-	ErrorLog ${APACHE_LOG_DIR}/error.log
-	CustomLog ${APACHE_LOG_DIR}/access.log combined
+	ErrorLog \${APACHE_LOG_DIR}/error.log
+	CustomLog \${APACHE_LOG_DIR}/access.log combined
 
 	Include conf.d/*.conf.vhost-default
 </VirtualHost>
@@ -871,8 +871,8 @@ EOF
 	# RewriteCond %{HTTPS} !=on
 	# RewriteRule ^/?(.*) https://%{SERVER_NAME}/\$1 [R,L]
 
-	ErrorLog ${APACHE_LOG_DIR}/htdocs-error.log
-	CustomLog ${APACHE_LOG_DIR}/htdocs-access.log combined
+	ErrorLog \${APACHE_LOG_DIR}/localhost-error.log
+	CustomLog \${APACHE_LOG_DIR}/localhost-access.log combined
 </VirtualHost>
 <IfModule mod_ssl.c>
 	<VirtualHost _default_:_apache_ssl_port_>
@@ -889,8 +889,8 @@ EOF
 				</IfModule>
 		</Directory>
 
-		ErrorLog ${APACHE_LOG_DIR}/htdocs-error.log
-		CustomLog ${APACHE_LOG_DIR}/htdocs-access.log combined
+		ErrorLog \${APACHE_LOG_DIR}/localhost-error.log
+		CustomLog \${APACHE_LOG_DIR}/localhost-access.log combined
 
 		#   SSL Engine Switch:
 		SSLEngine on
@@ -910,8 +910,6 @@ EOF
 				downgrade-1.0 force-response-1.0
 		# MSIE 7 and newer should be able to use keepalive
 		BrowserMatch "MSIE [[17-9]]" ssl-unclean-shutdown
-
-		Include conf.d/*.conf.vhost-default
 	</VirtualHost>
 </IfModule>
 
