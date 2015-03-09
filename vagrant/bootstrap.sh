@@ -1582,7 +1582,7 @@ if [[ $_install_varnish_ = 'yes' ]] ; then
 	sudo sh -c "curl https://repo.varnish-cache.org/debian/GPG-key.txt | apt-key add -"
 	sudo sh -c 'echo "deb https://repo.varnish-cache.org/debian/ wheezy varnish-4.0" > /etc/apt/sources.list.d/varnish-cache.list'
 	sudo apt-get update
-	sudo apt-get install -y varnish
+	sudo apt-get install -y --force-yes varnish
 
 	echo "-> Default configuration of varnish"
 	sudo sed -i "s,a :6081,a :$_varnish_listen_port_," /etc/default/varnish
