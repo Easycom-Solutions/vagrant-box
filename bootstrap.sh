@@ -1202,26 +1202,27 @@ fi
 ##########################################################################################
 # Install of phars cli-tools
 ##########################################################################################
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_composer_ = 'yes' ]]; then
+if [[ $_php_install_composer_ = 'yes' ]]; then
 	echo "--> Install composer"
 	sudo sh -c "curl -sS https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/local/bin/"
 fi
 
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_wpcli_ = 'yes' ]]; then
+if [[ $_php_install_wpcli_ = 'yes' ]]; then
 	echo "--> Install wp-cli"
 	curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
 	chmod +x wp-cli.phar
 	sudo mv wp-cli.phar /usr/local/bin/wpcli
 fi
 
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_n98magerun_ = 'yes' ]]; then
+if [[ $_php_install_n98magerun_ = 'yes' ]]; then
 	echo "--> Install n98 magerun"
 	curl -o n98-magerun.phar https://raw.githubusercontent.com/netz98/n98-magerun/master/n98-magerun.phar
 	chmod +x ./n98-magerun.phar
 	sudo cp ./n98-magerun.phar /usr/local/bin/magerun
+	sudo rm ./n98-magerun.phar
 fi
 
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_drush_ = 'yes' ]]; then
+if [[ $_php_install_drush_ = 'yes' ]]; then
 	echo "--> Install of drush"
 	sudo git clone https://github.com/drush-ops/drush.git /opt/drush -b ${_php_install_drush_version_}
 	sudo chown root:staff /opt/drush -R
