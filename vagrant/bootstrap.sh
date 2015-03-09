@@ -670,11 +670,21 @@ if [[ $_error = 1 ]]; then exit 1; fi
 ##########################################################################################
 export DEBIAN_FRONTEND=noninteractive
 cd /tmp
+
+_conf_folder_=$(find /vagrant/ -name conf)
+if [[ "" = $_conf_folder_ ]]; then
+    _conf_folder_=$_conf_folder_ 
+    sudo mkdir -p $_conf_folder_
+fi
+_vagrant_folder_=$(find /vagrant/ -name .vagrant)
+
 echo "-> Installation of dotdeb default repository"
-sudo sh -c 'echo "deb http://packages.dotdeb.org wheezy all" > /etc/apt/sources.list.d/dotdeb.list'
-sudo sh -c 'echo "deb-src http://packages.dotdeb.org wheezy all" >> /etc/apt/sources.list.d/dotdeb.list'	
-wget http://www.dotdeb.org/dotdeb.gpg
-sudo apt-key add dotdeb.gpg
+if [[ ! -f /etc/apt/sources.list.d/dotdeb.list ]]; then
+	sudo sh -c 'echo "deb http://packages.dotdeb.org wheezy all" > /etc/apt/sources.list.d/dotdeb.list'
+	sudo sh -c 'echo "deb-src http://packages.dotdeb.org wheezy all" >> /etc/apt/sources.list.d/dotdeb.list'	
+	wget http://www.dotdeb.org/dotdeb.gpg
+	sudo apt-key add dotdeb.gpg
+fi
 
 echo "-> Apt Update and upgrade of the system"
 sudo apt-get update
@@ -685,23 +695,23 @@ sudo apt-get install -y debconf-utils
 ##########################################################################################
 # Generate SSL certificates if not exist for https support if required
 ##########################################################################################
-if [[ ! -f /vagrant/.vagrant/ssl/localhost.key ]] || [[ ! -f /vagrant/.vagrant/ssl/localhost.crt ]] || [[ ! -f /vagrant/.vagrant/ssl/localhost.pem ]]; then
-	if [[ ! -d /vagrant/.vagrant/ssl ]]; then
+if [[ ! -f $_vagrant_folder_/ssl/localhost.key ]] || [[ ! -f $_vagrant_folder_/ssl/localhost.crt ]] || [[ ! -f $_vagrant_folder_/ssl/localhost.pem ]]; then
+	if [[ ! -d $_vagrant_folder_/ssl ]]; then
 		echo "-> Create ssl directory in project folder to share the key between VMs"
-		mkdir /vagrant/.vagrant/ssl
+		mkdir $_vagrant_folder_/ssl
 	fi
 	echo "-> Create the key file for ssl certificate"
-	openssl genrsa -out /vagrant/.vagrant/ssl/localhost.key 2048
+	openssl genrsa -out $_vagrant_folder_/ssl/localhost.key 2048
 	echo "-> Create the certificate with 10 years expiration time"
-	openssl req -new -x509 -key /vagrant/.vagrant/ssl/localhost.key -out /vagrant/.vagrant/ssl/localhost.crt -days 3650 -subj /CN=localhost
-	openssl x509 -in /vagrant/.vagrant/ssl/localhost.crt -out /vagrant/.vagrant/ssl/localhost.pem
-	openssl rsa -in /vagrant/.vagrant/ssl/localhost.key >> /vagrant/.vagrant/ssl/localhost.pem
+	openssl req -new -x509 -key $_vagrant_folder_/ssl/localhost.key -out $_vagrant_folder_/ssl/localhost.crt -days 3650 -subj /CN=localhost
+	openssl x509 -in $_vagrant_folder_/ssl/localhost.crt -out $_vagrant_folder_/ssl/localhost.pem
+	openssl rsa -in $_vagrant_folder_/ssl/localhost.key >> $_vagrant_folder_/ssl/localhost.pem
 fi
 
 echo "--> Copy ssl certificates previously generated to system"
-sudo cp /vagrant/.vagrant/ssl/localhost.key /etc/ssl/private/
-sudo cp /vagrant/.vagrant/ssl/localhost.crt /etc/ssl/certs/
-sudo cp /vagrant/.vagrant/ssl/localhost.pem /etc/ssl/certs/
+sudo cp $_vagrant_folder_/ssl/localhost.key /etc/ssl/private/
+sudo cp $_vagrant_folder_/ssl/localhost.crt /etc/ssl/certs/
+sudo cp $_vagrant_folder_/ssl/localhost.pem /etc/ssl/certs/
 
 echo "-> ------------------------------------------------------------------"
 echo "-> End of install of commons"
@@ -744,12 +754,12 @@ if [[ $_install_mysql_server_ = 'yes' ]]; then
 		mysql -u root -p$_mysql_root_password_ -e "FLUSH PRIVILEGES;"
 	fi
 
-	if [[ -f  /vagrant/conf/mysql/local.cnf ]]; then
+	if [[ -f  $_conf_folder_/mysql/local.cnf ]]; then
 		echo "--> Copy existing mysql configuration from our project"
-		sudo cp  /vagrant/conf/mysql/local.cnf /etc/mysql/conf.d/
+		sudo cp  $_conf_folder_/mysql/local.cnf /etc/mysql/conf.d/
 	elif [[ -f /etc/mysql/conf.d/local.cnf ]]; then
-		sudo mkdir -p  /vagrant/conf/mysql/
-		sudo cp /etc/mysql/conf.d/local.cnf  /vagrant/conf/mysql/local.cnf.sample
+		sudo mkdir -p  $_conf_folder_/mysql/
+		sudo cp /etc/mysql/conf.d/local.cnf  $_conf_folder_/mysql/local.cnf.sample
 	fi
 
 	if [[ $_mysql_createdb_ = 'yes' ]]; then
@@ -807,8 +817,8 @@ if [[ $_install_apache_ = 'yes' ]]; then
 	# -> vhosts 'default' configuration
 	
 	# First check if a project specific configuration file exist
-	if [[ -f  /vagrant/conf/apache/default.vhost ]]; then
-		sudo cp  /vagrant/conf/apache/default.vhost /etc/apache2/sites-available/default
+	if [[ -f  $_conf_folder_/apache/default.vhost ]]; then
+		sudo cp  $_conf_folder_/apache/default.vhost /etc/apache2/sites-available/default
 	else
 		# Else, install a default configuration
 		echo "--> Create the default configuration for apache (will respond to http://127.0.0.1:{port}/ or http://{hostname}:{port}/ "
@@ -834,8 +844,8 @@ EOF
 		sudo sed -i "s,_apache_port_,$_apache_port_," ./default
 		sudo mv ./default /etc/apache2/sites-available/	
 
-		sudo mkdir -p  /vagrant/conf/apache
-		sudo cp /etc/apache2/sites-available/default  /vagrant/conf/apache/default.vhost.sample
+		sudo mkdir -p  $_conf_folder_/apache
+		sudo cp /etc/apache2/sites-available/default  $_conf_folder_/apache/default.vhost.sample
 	fi
 
 	echo "--> Enable default vhost"
@@ -845,9 +855,9 @@ EOF
 	# -> vhosts 'locahost' configuration
 	
 	# First check if a project specific configuration file exist
-	if [[ -f  /vagrant/conf/apache/localhost.vhost ]]; then
+	if [[ -f  $_conf_folder_/apache/localhost.vhost ]]; then
 		echo "--> Copy existing apache configuration from our project"
-		sudo cp  /vagrant/conf/apache/localhost.vhost ./localhost
+		sudo cp  $_conf_folder_/apache/localhost.vhost ./localhost
 	else
 		# Else, install a default configuration
 		echo "--> Create the apache configuration for our project"
@@ -916,8 +926,8 @@ EOF
 EOF
 )
 		sudo echo "$file" > ./localhost
-		sudo mkdir -p  /vagrant/conf/apache
-		sudo cp ./localhost /vagrant/conf/apache/localhost.vhost.sample
+		sudo mkdir -p  $_conf_folder_/apache
+		sudo cp ./localhost $_conf_folder_/apache/localhost.vhost.sample
 	fi
 	
 	# Replace the tag for apache listened port by the correct value
@@ -1133,11 +1143,11 @@ if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_memcache_ = 'yes' ]]; then
 	cd ..
 	sudo mv memcached /var/www/default/tools/
 
-	if [[ -f /vagrant/conf/memcached/Memcache.php ]]; then
-		sudo cp /vagrant/conf/memcached/Memcache.php /var/www/default/tools/memcached/Config/
+	if [[ -f $_conf_folder_/memcached/Memcache.php ]]; then
+		sudo cp $_conf_folder_/memcached/Memcache.php /var/www/default/tools/memcached/Config/
 	else
-		sudo mkdir -p /vagrant/conf/memcached
-		sudo cp /var/www/default/tools/memcached/Config/Memcache.php /vagrant/conf/memcached/Memcache.php.sample
+		sudo mkdir -p $_conf_folder_/memcached
+		sudo cp /var/www/default/tools/memcached/Config/Memcache.php $_conf_folder_/memcached/Memcache.php.sample
 	fi
 
 	echo "-> Enable mailcatcher entry to index.html"
@@ -1582,7 +1592,7 @@ if [[ $_install_varnish_ = 'yes' ]] ; then
 	sudo sh -c "curl https://repo.varnish-cache.org/debian/GPG-key.txt | apt-key add -"
 	sudo sh -c 'echo "deb https://repo.varnish-cache.org/debian/ wheezy varnish-4.0" > /etc/apt/sources.list.d/varnish-cache.list'
 	sudo apt-get update
-	sudo apt-get install -y --force-yes varnish
+	sudo apt-get install -y varnish
 
 	echo "-> Default configuration of varnish"
 	sudo sed -i "s,a :6081,a :$_varnish_listen_port_," /etc/default/varnish
@@ -1593,28 +1603,28 @@ if [[ $_install_varnish_ = 'yes' ]] ; then
 
 
 	echo "-> Copy configuration from project if exist"
-	if [[ -f  /vagrant/conf/varnish/varnish.default ]]; then
+	if [[ -f  $_conf_folder_/varnish/varnish.default ]]; then
 		echo "--> Copy existing varnish configuration from our project"
-		sudo cp  /vagrant/conf/varnish/varnish.default /etc/default/varnish
+		sudo cp  $_conf_folder_/varnish/varnish.default /etc/default/varnish
 	else 
-		sudo mkdir -p  /vagrant/conf/varnish
-		sudo cp /etc/default/varnish  /vagrant/conf/varnish/varnish.default.sample
+		sudo mkdir -p  $_conf_folder_/varnish
+		sudo cp /etc/default/varnish  $_conf_folder_/varnish/varnish.default.sample
 	fi
 
-	if [[ -f  /vagrant/conf/varnish/secret ]]; then
+	if [[ -f  $_conf_folder_/varnish/secret ]]; then
 		echo "--> Copy existing varnish configuration from our project"
-		sudo cp  /vagrant/conf/varnish/secret /etc/varnish/secret
+		sudo cp  $_conf_folder_/varnish/secret /etc/varnish/secret
 	else 
-		sudo mkdir -p  /vagrant/conf/varnish
-		sudo cp /etc/varnish/secret  /vagrant/conf/varnish/secret
+		sudo mkdir -p  $_conf_folder_/varnish
+		sudo cp /etc/varnish/secret  $_conf_folder_/varnish/secret
 	fi
 
-	if [[ -f  /vagrant/conf/varnish/default.vcl ]]; then
+	if [[ -f  $_conf_folder_/varnish/default.vcl ]]; then
 		echo "--> Copy existing varnish configuration from our project"
-		sudo cp  /vagrant/conf/varnish/default.vcl /etc/varnish/
+		sudo cp  $_conf_folder_/varnish/default.vcl /etc/varnish/
 	else 
-		sudo mkdir -p  /vagrant/conf/varnish
-		sudo cp /etc/varnish/default.vcl  /vagrant/conf/varnish/default.vcl.sample
+		sudo mkdir -p  $_conf_folder_/varnish
+		sudo cp /etc/varnish/default.vcl  $_conf_folder_/varnish/default.vcl.sample
 	fi
 
 	sudo service varnish restart
@@ -1699,30 +1709,3 @@ if [[ ! $_solr_instance_url_ = '' ]] ; then
 fi
 
 exit 0
-
-#magerun install --dbHost="bdd1" --dbUser="root" --dbPass="vagrant" --dbName="magentodb" --installSampleData=yes --useDefaultConfigParams=yes --magentoVersionByName="magento-ce-1.9.1.0" --installationFolder="./" --baseUrl="http://magento.localdomain/"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
