@@ -60,7 +60,7 @@ where options are :
 	${bold}--php-install-composer${normal}			: yes/no statement
 	${bold}--php-install-drush${normal}			: yes/no statement
 	${bold}--php-install-drush-version${normal}			: (optionnal, default value : 6.5.0)
-	${bold}--php-install-n98magerun${normal}		: yes/no statement
+	${bold}--php-install-magerun${normal}		: yes/no statement
 	${bold}--php-install-wpcli${normal}			: yes/no statement
 
 	${green}Required arguments if '--install-apache=yes'${normal}
@@ -239,7 +239,7 @@ do
 		--php-install-composer=*)
 			_php_install_composer_="${i#*=}"
 			shift;;
-		--php-install-n98magerun=*)
+		--php-install-magerun=*)
 			_php_install_n98magerun_="${i#*=}"
 			shift;;
 		--php-install-wpcli=*)
