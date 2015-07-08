@@ -235,6 +235,9 @@ do
 		--php-install-memcache=*)
 			_php_install_memcache_="${i#*=}"
 			shift;;
+		--php-install-uploadprogress=*)
+			_php_install_uploadprogress_="${i#*=}"
+			shift;;
 
 		--php-install-composer=*)
 			_php_install_composer_="${i#*=}"
