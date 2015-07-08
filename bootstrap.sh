@@ -1060,7 +1060,7 @@ fi
 ##########################################################################################
 # Install of xdebug for php
 ##########################################################################################
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_xdebug_ = 'yes' ]]; then
+if [[ $_php_install_xdebug_ = 'yes' ]]; then
 	
 	echo "--> Install xdebug"
 	sudo pecl install xdebug
@@ -1102,7 +1102,7 @@ fi
 ##########################################################################################
 # Install of memcache for php
 ##########################################################################################
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_memcache_ = 'yes' ]]; then
+if [[ $_php_install_memcache_ = 'yes' ]]; then
 	
 	echo "--> Install memcache"
 	sudo pecl install memcache
@@ -1141,7 +1141,7 @@ fi
 ##########################################################################################
 # Install of redis for php
 ##########################################################################################
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_redis_ = 'yes' ]]; then
+if [[ $_php_install_redis_ = 'yes' ]]; then
 	
 	echo "--> Install redis"
 	sudo pecl install redis
@@ -1161,7 +1161,7 @@ fi
 ##########################################################################################
 # Install of uploadprogress for php
 ##########################################################################################
-if [[ $_install_php_ = 'yes' ]] && [[ $_php_install_uploadprogress_ = 'yes' ]]; then
+if [[ $_php_install_uploadprogress_ = 'yes' ]]; then
 	
 	echo "--> Install uploadprogress"
 	sudo pecl install uploadprogress
@@ -1286,7 +1286,8 @@ fi
 ##########################################################################################
 # Install of PHPMyAdmin
 ##########################################################################################
-if [[ $_install_phpmyadmin_ = 'yes' ]] && [[ $_install_php_ = 'yes' ]]; then
+if [[ $_install_phpmyadmin_ = 'yes' ]]; then
+
 	echo "--> Start setup of phpmyadmin"
 	echo "--> Setup debconf variables for silent install"
 
