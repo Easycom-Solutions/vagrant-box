@@ -492,8 +492,8 @@ fi
 # ----------------------------------------------------------------------------------------
 if [[ $_install_php_ = 'yes' ]]; then
 	# Set default value for apache install
-	_php_version__default_value='php54'
-	if [[ ! $_php_version_ = 'php54' ]] && [[ ! $_php_version_ = 'php56' ]] && [[ ! $_php_version_ = 'php56' ]]; then 
+	_php_version__default_value='php56'
+	if [[ ! $_php_version_ = 'php54' ]] && [[ ! $_php_version_ = 'php55' ]] && [[ ! $_php_version_ = 'php56' ]]; then 
 		_apache_tools_secure_=$_php_version__default_value 
 		echo "warn : the argument defined for php version is not valid, the version was reset to default value : $_php_version__default_value" 
 	fi
@@ -681,10 +681,12 @@ if [[ "" = $_conf_folder_ ]]; then
 fi
 _vagrant_folder_=$(find /vagrant/ -name .vagrant)
 
-echo "-> Installation of dotdeb default repository"
 if [[ ! -f /etc/apt/sources.list.d/dotdeb.list ]]; then
-	sudo sh -c 'echo "deb http://packages.dotdeb.org wheezy all" > /etc/apt/sources.list.d/dotdeb.list'
-	sudo sh -c 'echo "deb-src http://packages.dotdeb.org wheezy all" >> /etc/apt/sources.list.d/dotdeb.list'	
+	sudo sed -i "s,jessie main,jessie main contrib non-free," /etc/apt/sources.list
+	
+	echo "-> Installation of dotdeb default repository"
+	sudo sh -c 'echo "deb http://packages.dotdeb.org jessie all" > /etc/apt/sources.list.d/dotdeb.list'
+	sudo sh -c 'echo "deb-src http://packages.dotdeb.org jessie all" >> /etc/apt/sources.list.d/dotdeb.list'	
 	wget http://www.dotdeb.org/dotdeb.gpg
 	sudo apt-key add dotdeb.gpg
 fi
@@ -692,7 +694,7 @@ fi
 echo "-> Apt Update and upgrade of the system"
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y git bzip2 gzip iptraf lsb-release update-notifier-common curl pwgen sysv-rc-conf htop iotop
+sudo apt-get install -y git bzip2 gzip iptraf lsb-release curl pwgen sysv-rc-conf htop iotop
 sudo apt-get install -y debconf-utils 
 
 ##########################################################################################
@@ -808,8 +810,8 @@ if [[ $_install_apache_ = 'yes' ]]; then
 	sudo a2enmod ssl
 
 	echo "-> Configure ServerName to avoid the classic warning message at restart"
-	sudo sh -c 'echo "ServerName $(cat /etc/hostname)" > /etc/apache2/conf.d/servername'
-
+	sudo sh -c 'echo "ServerName $(cat /etc/hostname)" > /etc/apache2/conf-available/servername.conf'
+	sudo a2enconf servername
 	echo "--> Remove default configuration about sites"
 	sudo mkdir _bak
 	sudo mv /etc/apache2/sites-available/* _bak/
@@ -821,7 +823,7 @@ if [[ $_install_apache_ = 'yes' ]]; then
 	
 	# First check if a project specific configuration file exist
 	if [[ -f  $_conf_folder_/apache/default.vhost ]]; then
-		sudo cp  $_conf_folder_/apache/default.vhost /etc/apache2/sites-available/default
+		sudo cp  $_conf_folder_/apache/default.vhost /etc/apache2/sites-available/default.conf
 	else
 		# Else, install a default configuration
 		echo "--> Create the default configuration for apache (will respond to http://127.0.0.1:{port}/ or http://{hostname}:{port}/ "
@@ -832,23 +834,27 @@ if [[ $_install_apache_ = 'yes' ]]; then
 
 	<Directory /var/www/default>
 		Options -Indexes +FollowSymLinks +MultiViews
-		AllowOverride None
+		AllowOverride All
+		#if Apache 2.4
+		<IfModule mod_authz_core.c>
+			Require all granted
+		</IfModule>
 	</Directory>
 
 	ErrorLog \${APACHE_LOG_DIR}/error.log
 	CustomLog \${APACHE_LOG_DIR}/access.log combined
 
-	Include conf.d/*.conf.vhost-default
+	IncludeOptional conf-enabled/*.conf.vhost-default
 </VirtualHost>
 
 EOF
 )
 		sudo echo "$file" > ./default
 		sudo sed -i "s,_apache_port_,$_apache_port_," ./default
-		sudo mv ./default /etc/apache2/sites-available/	
+		sudo mv ./default /etc/apache2/sites-available/default.conf
 
 		sudo mkdir -p  $_conf_folder_/apache
-		sudo cp /etc/apache2/sites-available/default  $_conf_folder_/apache/default.vhost.sample
+		sudo cp /etc/apache2/sites-available/default.conf  $_conf_folder_/apache/default.vhost.sample
 	fi
 
 	echo "--> Enable default vhost"
@@ -946,7 +952,7 @@ EOF
 		sudo sed -i "s,# Rewrite,Rewrite," ./localhost
 	fi
 	
-	sudo mv ./localhost /etc/apache2/sites-available/
+	sudo mv ./localhost /etc/apache2/sites-available/localhost.conf
 	sudo a2ensite localhost
 	
 	# ------------------------------------------------------------------------------------
@@ -960,7 +966,7 @@ EOF
 		AuthType Basic
 		require valid-user
 		</Directory>' > ./default-tools-secure.conf.vhost-default
-		sudo mv ./default-tools-secure.conf.vhost-default /etc/apache2/conf.d/
+		sudo mv ./default-tools-secure.conf.vhost-default /etc/apache2/conf-enabled/
 		htpasswd -cb .htpasswd $_apache_tools_username_ $_apache_tools_pass_
 		sudo mv .htpasswd /var/www/default/tools/
 	fi
@@ -973,37 +979,9 @@ fi
 # Let's configure PHP
 ##########################################################################################
 if [[ $_install_php_ = 'yes' ]]; then
-	
-	#
-	# By default, we use dotdeb without upgrade of php, we change that configuration if required by arguments
-	#
-	if [[ $_php_version_ = "php55" ]]; then
-		echo "-> Installation of dotdeb php5.5 repository"
-		sudo sh -c 'echo "deb http://packages.dotdeb.org wheezy-php55 all" > /etc/apt/sources.list.d/dotdeb.list'
-		sudo sh -c 'echo "deb-src http://packages.dotdeb.org wheezy-php55 all" >> /etc/apt/sources.list.d/dotdeb.list'
-		sudo apt-get update
-	elif [[ $_php_version_ = "php56" ]]; then
-		echo "-> Installation of dotdeb php5.6 repository"
-		sudo sh -c 'echo "deb http://packages.dotdeb.org wheezy-php56 all" > /etc/apt/sources.list.d/dotdeb.list'
-		sudo sh -c 'echo "deb-src http://packages.dotdeb.org wheezy-php56 all" >> /etc/apt/sources.list.d/dotdeb.list'
-		sudo apt-get update
-	fi	
-	
+
 	echo "-> Install PHP5 and some associated libs"
 	sudo apt-get install -y php5-fpm php-pear php5-dev php5-imagick php5-gd php5-mcrypt php5-curl php5-mysql
-	
-	#
-	# If php version is under 5.5, the opcode is not integrated by default
-	#
-	if [[ $_php_version_ = "php54" ]]; then
-		echo "-> Installation de l'opcode pour PHP 5.4"
-		sudo pear config-set preferred_state beta
-		sudo pecl install ZendOpCache
-		sudo sh -c 'echo "zend_extension=opcache.so" > /etc/php5/mods-available/opcache.ini' 
-		sudo sed -i "s,opcache.so,$(sudo find / -name 'opcache.so')," /etc/php5/mods-available/opcache.ini
-		sudo php5enmod opcache
-		 
-	fi	
 	
 	#
 	# Configure opcode if arguments are specified
@@ -1023,10 +1001,9 @@ if [[ $_install_php_ = 'yes' ]]; then
 	#
 	# Add an interface for opcode stats (OpCacheGui is only compatible for php5.5+
 	#
-	if [[ ! $2 = "php54" ]]; then
-		echo "-> Installation de OpCacheGUI depuis github"
-		git clone https://github.com/PeeHaa/OpCacheGUI.git
-		file=$(cat <<EOF
+	echo "-> Installation de OpCacheGUI depuis github"
+	git clone https://github.com/PeeHaa/OpCacheGUI.git
+	file=$(cat <<EOF
 <?php
 namespace OpCacheGUI;
 use OpCacheGUI\I18n\FileTranslator;
@@ -1040,13 +1017,8 @@ ini_set('date.timezone', 'Europe/Paris');
 \$login = [ 'username' => '', 'password' => '', 'whitelist' => [ '*' ] ];
 EOF
 	)
-		echo "$file" > OpCacheGUI/init.example.php
-		sudo mv OpCacheGUI /var/www/default/tools/opcache
-	else
-		echo "-> Installation of opcache-gui from github"
-		git clone https://github.com/amnuts/opcache-gui.git
-		sudo mv opcache-gui /var/www/default/tools/opcache
-	fi
+	echo "$file" > OpCacheGUI/init.example.php
+	sudo mv OpCacheGUI /var/www/default/tools/opcache
 	
 	#
 	# If apache was installed, we configure it for php
@@ -1058,12 +1030,16 @@ EOF
 	Action application/x-httpd-fastphp5 /php5-fcgi
 	Alias /php5-fcgi /usr/lib/cgi-bin/php5-fcgi
 	FastCgiExternalServer /usr/lib/cgi-bin/php5-fcgi -socket /var/run/php5-fpm.sock -pass-header Authorization
+	<Directory /usr/lib/cgi-bin>
+  		Require all granted
+	</Directory>
 </IfModule>
 
 EOF
 		)
 		sudo echo "$file" > php5-fpm
-		sudo mv php5-fpm /etc/apache2/conf.d/
+		sudo mv php5-fpm /etc/apache2/conf-available/php5-fpm.conf
+		sudo a2enconf php5-fpm
 		sudo service apache2 restart
 	fi
 
@@ -1296,7 +1272,7 @@ if [[ $_install_pagespeed_ = 'yes' ]] && [[ $_install_apache_ = 'yes' ]]; then
 EOF
 	)
 	sudo echo "$file" > pagespeed.conf.vhost-default 
-	sudo mv pagespeed.conf.vhost-default /etc/apache2/conf.d/
+	sudo mv pagespeed.conf.vhost-default /etc/apache2/conf-enabled/
 	
 	echo "-> Enable pagespeed entry to index.html"
 	sudo sed -i "s/<\!--__pagespeed__/ /" /var/www/default/index.html
@@ -1353,27 +1329,28 @@ if [[ $_install_phpmyadmin_ = 'yes' ]] && [[ $_install_php_ = 'yes' ]]; then
 	echo "--> Download phpmyadmin.deb to install it with ignoring apache2 dependency"
 	sudo apt-get download phpmyadmin
 	sudo dpkg --ignore-depends=libapache2-mod-php5,libapache2-mod-php5filter --install phpmyadmin*
-	sudo apt-get -f install
+	sudo apt-get -f -y install
 
 	# Configure apache to access phpmyadmin by tools path
 	if [[ $_install_apache_ = 'yes' ]]; then
 		echo "-> Update phpmyadmin alias to be accesible by /tools/phpmyadmin only from the default vhost"
-		sudo sed -i 's,Alias /phpmyadmin /usr/share/phpmyadmin,# Alias /phpmyadmin /usr/share/phpmyadmin,' /etc/apache2/conf.d/phpmyadmin.conf
-		sudo sh -c "echo \"Alias /tools/phpmyadmin /usr/share/phpmyadmin\" > /etc/apache2/conf.d/phpmyadmin.conf.vhost-default"
+		sudo sed -i 's,Alias /phpmyadmin /usr/share/phpmyadmin,# Alias /phpmyadmin /usr/share/phpmyadmin,' /etc/apache2/conf-available/phpmyadmin.conf
+		sudo sh -c "echo \"Alias /tools/phpmyadmin /usr/share/phpmyadmin\" > /etc/apache2/conf-enabled/phpmyadmin.conf.vhost-default"
 		sudo service apache2 restart
 	fi
 
 	if [[ $_phpmyadmin_auth_type_ = "config" ]]; then
-		sudo sed -i "s,'cookie';,'config';\n    \$cfg['Servers'][\$i]['user'] = '${_phpmyadmin_server_user_}';\n    \$cfg['Servers'][\$i]['password'] = '${_phpmyadmin_server_password_}';\n," /etc/phpmyadmin/config.inc.php
+		sudo sed -i "s,'cookie';,'config';\n    \$cfg['Servers'][\$i]['user'] = '${_phpmyadmin_server_user_}';\n    \$cfg['Servers'][\$i]['password'] = '${_phpmyadmin_server_password_}';\n    \$cfg['AllowThirdPartyFraming'] = true;\n," /etc/phpmyadmin/config.inc.php
 	fi
 	
 	echo "-> Enable phpmyadmin entry to index.html"
 	sudo sed -i "s/<\!--__phpmyadmin__/ /" /var/www/default/index.html
 	sudo sed -i "s/__phpmyadmin__-->//" /var/www/default/index.html
 	
-	echo "-> ------------------------------------------------------------------"
-	echo "-> End of install of phpmyadmin"
+	sudo apt-get install -y php5-mysqlnd
 	
+	echo "-> ------------------------------------------------------------------"
+	echo "-> End of install of phpmyadmin"	
 fi
 
 ##########################################################################################
