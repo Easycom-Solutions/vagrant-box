@@ -767,7 +767,10 @@ if [[ $_install_mysql_server_ = 'yes' ]]; then
 		mysql -u root -p$_mysql_root_password_ -e "GRANT ALL PRIVILEGES ON $_mysql_dbname_.* TO '$_mysql_dbuser_'@'%' IDENTIFIED BY '$_mysql_dbpass_'"
 		mysql -u root -p$_mysql_root_password_ -e "FLUSH PRIVILEGES"
 
-		if [[ -f /vagrant/sql/localdb.sql ]]; then
+		if [[ -f /vagrant/sql/localdb.sql.gz ]]; then
+			echo "--> Import existing database to our project"
+			zcat /vagrant/sql/localdb.sql.gz | mysql -u root -p$_mysql_root_password_ ${_mysql_dbname_}
+		elif [[ -f /vagrant/sql/localdb.sql ]]; then
 			echo "--> Import existing database to our project"
 			mysql -u root -p$_mysql_root_password_ ${_mysql_dbname_} < /vagrant/sql/localdb.sql
 		fi
