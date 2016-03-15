@@ -35,6 +35,7 @@ where options are :
 	${bold}--install-pagespeed${normal}		: yes/no statement
 	${bold}--install-memcached${normal}		: yes/no statement
 	${bold}--install-ffmpeg${normal}		: yes/no statement
+	${bold}--install-elastic${normal}		: yes/no statement
 
 	${green}Required arguments if '--install-mysql-server=yes'${normal}
 	${bold}--mysql-root-password${normal} 		: define the password for mysql's server root user
@@ -46,7 +47,7 @@ where options are :
 	${bold}--mysql-dbpass${normal} 			: required if --mysql-createdb=yes, define the password of the database's user
 
 	${green}Required arguments if '--install-php=yes'${normal}
-	${bold}--php-version${normal} 				: version of php to install, valid value are [[php54, php55, php56]]
+	${bold}--php-version${normal} 				: version of php to install, valid value are [[php5, php7]]
 	${bold}--php-opcache-memory${normal} 			: (integer), opcache memory consomption (128Mb seems to be a good start, need to be monitored)
 	${bold}--php-opcache-max-accelerated-files${normal} 	: (integer), opcache number of files accelerated : need to be up than number of php files in your hosted project to be efficient
 
@@ -193,6 +194,9 @@ do
 		--install-ffmpeg=*)
 			_install_ffmpeg_="${i#*=}"
 			shift;;
+		--install-elastic=*)
+			_install_elastic_="${i#*=}"
+			shift;;
 
 		--mysql-root-password=*)
 			_mysql_root_password_="${i#*=}"
@@ -255,11 +259,10 @@ do
 			_php_install_drush_version_="${i#*=}"
 			shift;;
 
-
 		--apache-port=*)
 			_apache_port_="${i#*=}"
 			shift;;
-		--apache-ssl-port=*)
+		--apache-port-ssl=*)
 			_apache_ssl_port_="${i#*=}"
 			shift;;
 		--apache-localhost-aliases=*)
@@ -492,8 +495,8 @@ fi
 # ----------------------------------------------------------------------------------------
 if [[ $_install_php_ = 'yes' ]]; then
 	# Set default value for apache install
-	_php_version__default_value='php56'
-	if [[ ! $_php_version_ = 'php54' ]] && [[ ! $_php_version_ = 'php55' ]] && [[ ! $_php_version_ = 'php56' ]]; then 
+	_php_version__default_value='php5'
+	if [[ ! $_php_version_ = 'php7' ]] && [[ ! $_php_version_ = 'php5' ]]; then 
 		_apache_tools_secure_=$_php_version__default_value 
 		echo "warn : the argument defined for php version is not valid, the version was reset to default value : $_php_version__default_value" 
 	fi
@@ -676,7 +679,7 @@ cd /tmp
 
 _conf_folder_=$(find /vagrant/ -name conf)
 if [[ "" = $_conf_folder_ ]]; then
-    _conf_folder_=$_conf_folder_ 
+    _conf_folder_='/vagrant/conf' 
     sudo mkdir -p $_conf_folder_
 fi
 _vagrant_folder_=$(find /vagrant/ -name .vagrant)
@@ -980,30 +983,34 @@ fi
 ##########################################################################################
 if [[ $_install_php_ = 'yes' ]]; then
 
-	echo "-> Install PHP5 and some associated libs"
-	sudo apt-get install -y php5-fpm php-pear php5-dev php5-imagick php5-gd php5-mcrypt php5-curl php5-mysql
-	
-	#
-	# Configure opcode if arguments are specified
-	# Magento 1.9 had 8273 PHP files and 1151 PHTML files out of the box, and default max_accelerated_files is 2000, so that's not enough
-	#	
-	cp  /etc/php5/mods-available/opcache.ini ./opcache.ini
-	if [[ ! $_php_opcache_memory_ = '' ]]; then
-		echo "-> Configure zend opcode $_php_opcache_memory_M of cache"
-		echo "opcache.memory_consumption=$_php_opcache_memory_" >> ./opcache.ini
-	fi
-	if [[ ! $_php_opcache_max_accelerated_files_ = '' ]]; then
-		echo "-> Configure zend opcode to $_php_opcache_max_accelerated_files_ files as max_accelerated_files"
-		echo "opcache.max_accelerated_files=$_php_opcache_max_accelerated_files_" >> ./opcache.ini
-	fi
-	sudo mv ./opcache.ini /etc/php5/mods-available/opcache.ini
-	
-	#
-	# Add an interface for opcode stats (OpCacheGui is only compatible for php5.5+
-	#
-	echo "-> Installation de OpCacheGUI depuis github"
-	git clone https://github.com/PeeHaa/OpCacheGUI.git
-	file=$(cat <<EOF
+	echo "-> Start PHP install"
+
+	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
+
+		echo "-> Install PHP5 and some associated libs"
+		sudo apt-get install -y php5-fpm php-pear php5-dev php5-imagick php5-gd php5-mcrypt php5-curl php5-mysql
+		
+		#
+		# Configure opcode if arguments are specified
+		# Magento 1.9 had 8273 PHP files and 1151 PHTML files out of the box, and default max_accelerated_files is 2000, so that's not enough
+		#	
+		cp  /etc/php5/mods-available/opcache.ini ./opcache.ini
+		if [[ ! $_php_opcache_memory_ = '' ]]; then
+			echo "-> Configure zend opcode $_php_opcache_memory_M of cache"
+			echo "opcache.memory_consumption=$_php_opcache_memory_" >> ./opcache.ini
+		fi
+		if [[ ! $_php_opcache_max_accelerated_files_ = '' ]]; then
+			echo "-> Configure zend opcode to $_php_opcache_max_accelerated_files_ files as max_accelerated_files"
+			echo "opcache.max_accelerated_files=$_php_opcache_max_accelerated_files_" >> ./opcache.ini
+		fi
+		sudo mv ./opcache.ini /etc/php5/mods-available/opcache.ini
+		
+		#
+		# Add an interface for opcode stats (OpCacheGui is only compatible for php5.5+
+		#
+		echo "-> Installation de OpCacheGUI depuis github"
+		git clone https://github.com/PeeHaa/OpCacheGUI.git
+		file=$(cat <<EOF
 <?php
 namespace OpCacheGUI;
 use OpCacheGUI\I18n\FileTranslator;
@@ -1016,31 +1023,98 @@ ini_set('date.timezone', 'Europe/Paris');
 \$uriScheme = Router::QUERY_STRING;
 \$login = [ 'username' => '', 'password' => '', 'whitelist' => [ '*' ] ];
 EOF
-	)
-	echo "$file" > OpCacheGUI/init.example.php
-	sudo mv OpCacheGUI /var/www/default/tools/opcache
-	
-	#
-	# If apache was installed, we configure it for php
-	#
-	if [[ $_install_apache_ = 'yes' ]]; then
-		file=$(cat <<EOF
+		)
+		echo "$file" > OpCacheGUI/init.example.php
+		sudo mv OpCacheGUI /var/www/default/tools/opcache
+		
+		#
+		# If apache was installed, we configure it for php
+		#
+		if [[ $_install_apache_ = 'yes' ]]; then
+			file=$(cat <<EOF
 <IfModule mod_fastcgi.c>
-	AddType application/x-httpd-fastphp5 .php
-	Action application/x-httpd-fastphp5 /php5-fcgi
+	AddType php5 .php
+	Action php5 /php5-fcgi
 	Alias /php5-fcgi /usr/lib/cgi-bin/php5-fcgi
 	FastCgiExternalServer /usr/lib/cgi-bin/php5-fcgi -socket /var/run/php5-fpm.sock -pass-header Authorization
 	<Directory /usr/lib/cgi-bin>
   		Require all granted
 	</Directory>
 </IfModule>
+EOF
+			)
+			sudo echo "$file" > php5-fpm
+			sudo mv php5-fpm /etc/apache2/conf-available/php5-fpm.conf
+			sudo a2enconf php5-fpm
+			sudo service php5-fpm restart
+			sudo service apache2 restart
 
+		fi
+	fi
+	
+	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
+		echo "-> Install PHP7 and some associated libs"
+		sudo apt-get install -y php7.0-fpm php7.0-json php7.0-dev php7.0-imagick php7.0-gd php7.0-mcrypt php7.0-curl php7.0-mysql php7.0-bz2
+
+		#
+		# Configure opcode if arguments are specified
+		# Magento 1.9 had 8273 PHP files and 1151 PHTML files out of the box, and default max_accelerated_files is 2000, so that's not enough
+		#	
+		cp  /etc/php/mods-available/opcache.ini ./opcache.ini
+		if [[ ! $_php_opcache_memory_ = '' ]]; then
+			echo "-> Configure zend opcode $_php_opcache_memory_M of cache"
+			echo "opcache.memory_consumption=$_php_opcache_memory_" >> ./opcache.ini
+		fi
+		if [[ ! $_php_opcache_max_accelerated_files_ = '' ]]; then
+			echo "-> Configure zend opcode to $_php_opcache_max_accelerated_files_ files as max_accelerated_files"
+			echo "opcache.max_accelerated_files=$_php_opcache_max_accelerated_files_" >> ./opcache.ini
+		fi
+		sudo mv ./opcache.ini /etc/php/mods-available/opcache.ini
+		
+		#
+		# Add an interface for opcode stats (OpCacheGui is only compatible for php5.5+
+		#
+		echo "-> Installation de OpCacheGUI depuis github"
+		git clone https://github.com/PeeHaa/OpCacheGUI.git
+		file=$(cat <<EOF
+<?php
+namespace OpCacheGUI;
+use OpCacheGUI\I18n\FileTranslator;
+use OpCacheGUI\Network\Router;
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 0);
+ini_set('date.timezone', 'Europe/Paris');
+\$translator = new FileTranslator(__DIR__ . '/texts', 'fr');
+\$uriScheme = Router::QUERY_STRING;
+\$login = [ 'username' => '', 'password' => '', 'whitelist' => [ '*' ] ];
 EOF
 		)
-		sudo echo "$file" > php5-fpm
-		sudo mv php5-fpm /etc/apache2/conf-available/php5-fpm.conf
-		sudo a2enconf php5-fpm
-		sudo service apache2 restart
+		echo "$file" > OpCacheGUI/init.example.php
+		sudo mv OpCacheGUI /var/www/default/tools/opcache
+		
+		#
+		# If apache was installed, we configure it for php
+		#
+		if [[ $_install_apache_ = 'yes' ]]; then
+			file=$(cat <<EOF
+<IfModule mod_fastcgi.c>
+	AddType php7 .php
+    Action php7 /php7-fcgi
+    Alias /php7-fcgi /usr/lib/cgi-bin/php7.0-fcgi
+    FastCgiExternalServer /usr/lib/cgi-bin/php7.0-fcgi -socket /run/php/php7.0-fpm.sock -pass-header Authorization -idle-timeout 300
+    <Directory /usr/lib/cgi-bin>
+        Require all granted
+    </Directory>
+</IfModule>
+EOF
+			)
+			sudo echo "$file" > php7-fpm
+			sudo mv php7-fpm /etc/apache2/conf-available/php7-fpm.conf
+			sudo a2enconf php7-fpm
+			sudo service php7.0-fpm restart
+			sudo service apache2 restart
+		fi	
 	fi
 
 	#
@@ -1048,11 +1122,40 @@ EOF
 	#
 	echo "-> Create the phpinfo file under 'tools' path"
 	sudo sh -c 'echo "<?php phpinfo(); ?>" >> /var/www/default/tools/info.php'
+
+
+	#
+	# Create the phpinfo for php 5 and 7 file under 'tools' path
+	#
+	sudo mkdir -p /var/www/default/tools/php5 /var/www/default/tools/php7
+	echo "-> Create the phpinfo file under 'tools' path"
 	
 	echo "-> copy of the index of the server to grant access to tools"
 	sudo cp $(dirname $(sudo find / -name 'bootstrap.sh'))/index.html /var/www/default/
+
+	if [[ $_php_version_ = "php5+7" ]]; then
+
+		sudo sh -c 'echo "<?php phpinfo(); ?>" >> /var/www/default/tools/php5/info.php'
+		sudo sh -c 'echo "AddType php5 .php" >> /var/www/default/tools/php5/.htaccess'
+		sudo sed -i "s/info.php<\/a>/info.php<\/a>\n<a href='tools\/php5\/info.php' class='list-group-item ''>Info PHP5<\/a> /" /var/www/default/index.html
+		
+		sudo sh -c 'echo "<?php phpinfo(); ?>" >> /var/www/default/tools/php7/info.php'
+		sudo sh -c 'echo "AddType php7 .php" >> /var/www/default/tools/php7/.htaccess'
+		sudo sed -i "s/info.php<\/a>/default info.php<\/a>\n<a href='tools\/php7\/info.php' class='list-group-item ''>Info PHP7<\/a> /" /var/www/default/index.html
+
+		sudo mv /var/www/default/tools/opcache /var/www/default/tools/opcache5
+		sudo cp -Rf /var/www/default/tools/opcache5 /var/www/default/tools/opcache7
+
+		sudo sh -c 'echo "AddType php5 .php" >> /var/www/default/tools/opcache5/.htaccess'
+		sudo sed -i "s/Opcache<\/a>/Opcache<\/a>\n<a href='tools\/opcache5\/' class='list-group-item ''>Opcache PHP5<\/a> /" /var/www/default/index.html
+		
+		sudo sh -c 'echo "AddType php7 .php" >> /var/www/default/tools/opcache7/.htaccess'
+		sudo sed -i "s/Opcache<\/a>/Opcache<\/a>\n<a href='tools\/opcache7\/' class='list-group-item ''>Opcache PHP7<\/a> /" /var/www/default/index.html
+
+		sudo sed -i 's/<a href=\"tools\/opcache\/" class=\"list-group-item\">Opcache<\/a>/ /' /var/www/default/index.html
+		
+	fi
 	
-	sudo service php5-fpm restart
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of php"
 fi
@@ -1061,11 +1164,14 @@ fi
 # Install of xdebug for php
 ##########################################################################################
 if [[ $_php_install_xdebug_ = 'yes' ]]; then
+
+
+	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
 	
-	echo "--> Install xdebug"
-	sudo pecl install xdebug
-	
-	file=$(cat <<EOF
+		echo "--> Install xdebug"
+		sudo pecl install xdebug
+		
+		file=$(cat <<EOF
 zend_extension=xdebug.so
 xdebug.remote_enable=1
 xdebug.remote_connect_back=1
@@ -1075,15 +1181,40 @@ xdebug.profiler_output_dir=/tmp
 xdebug.profiler_output_name=cachegrind.out.%p-%H-%R
 
 EOF
-	)
-	sudo echo "$file" > xdebug.ini
-	sudo mv xdebug.ini /etc/php5/mods-available/
+		)
+		sudo echo "$file" > xdebug.ini
+		sudo mv xdebug.ini /etc/php5/mods-available/
 
-	echo "--> Configure xdebug.ini to point on the xdebug.so at the full path"
-	sudo sed -i "s,xdebug.so,$(sudo find / -name 'xdebug.so')," /etc/php5/mods-available/xdebug.ini
+		echo "--> Configure xdebug.ini to point on the xdebug.so at the full path"
+		sudo sed -i "s,xdebug.so,$(sudo find / -name 'xdebug.so')," /etc/php5/mods-available/xdebug.ini
 
-	echo "--> Enable xdebug"
-	sudo php5enmod xdebug
+		echo "--> Enable xdebug"
+		sudo php5enmod xdebug
+		sudo service php5-fpm restart
+	fi
+
+	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
+	
+		echo "--> Install xdebug"
+		sudo apt-get install -y php7.0-xdebug
+		
+		file=$(cat <<EOF
+zend_extension=xdebug.so
+xdebug.remote_enable=1
+xdebug.remote_connect_back=1
+xdebug.profiler_enable_trigger = 1
+
+xdebug.profiler_output_dir=/tmp
+xdebug.profiler_output_name=cachegrind.out.%p-%H-%R
+
+EOF
+		)
+		sudo echo "$file" > xdebug.ini
+		sudo mv xdebug.ini /etc/php/mods-available/
+
+		sudo service php7.0-fpm restart
+	fi
+
 
 	echo "--> Install webgrind into /tools/webgrind path (will show graph user triggered session only)"
 	git clone https://github.com/jokkedk/webgrind.git
@@ -1105,14 +1236,24 @@ fi
 if [[ $_php_install_memcache_ = 'yes' ]]; then
 	
 	echo "--> Install memcache"
-	sudo pecl install memcache
-	sudo sh -c "echo 'extension=memcache.so' > /etc/php5/mods-available/memcache.ini"
+	
+	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
 
-	echo "--> Configure memcache.ini to point on the memcache.so at the full path"
-	sudo sed -i "s,memcache.so,$(sudo find / -name 'memcache.so')," /etc/php5/mods-available/memcache.ini
+		
+		sudo pecl install memcache
+		sudo sh -c "echo 'extension=memcache.so' > /etc/php5/mods-available/memcache.ini"
 
-	echo "--> Enable memcache"
-	sudo php5enmod memcache
+		echo "--> Configure memcache.ini to point on the memcache.so at the full path"
+		sudo sed -i "s,memcache.so,$(sudo find / -name 'memcache.so')," /etc/php5/mods-available/memcache.ini
+
+		echo "--> Enable memcache"
+		sudo php5enmod memcache
+		sudo service php5-fpm restart
+	fi
+
+	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
+		sudo apt-get install -y php7.0-memcached
+	fi
 	
 	mkdir memcached
 	cd memcached/
@@ -1133,7 +1274,6 @@ if [[ $_php_install_memcache_ = 'yes' ]]; then
 	sudo sed -i "s/<\!--__memcached__/ /" /var/www/default/index.html
 	sudo sed -i "s/__memcached__-->//" /var/www/default/index.html
 
-	sudo service php5-fpm restart
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of memcache for php"
 fi
@@ -1142,18 +1282,25 @@ fi
 # Install of redis for php
 ##########################################################################################
 if [[ $_php_install_redis_ = 'yes' ]]; then
-	
+
 	echo "--> Install redis"
-	sudo pecl install redis
-	sudo sh -c "echo 'extension=redis.so' > /etc/php5/mods-available/redis.ini"
-
-	echo "--> Configure redis.ini to point on the redis.so at the full path"
-	sudo sed -i "s,redis.so,$(sudo find / -name 'redis.so')," /etc/php5/mods-available/redis.ini
-
-	echo "--> Enable redis"
-	sudo php5enmod redis
 	
-	sudo service php5-fpm restart
+	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then	
+		sudo pecl install redis
+		sudo sh -c "echo 'extension=redis.so' > /etc/php5/mods-available/redis.ini"
+
+		echo "--> Configure redis.ini to point on the redis.so at the full path"
+		sudo sed -i "s,redis.so,$(sudo find / -name 'redis.so')," /etc/php5/mods-available/redis.ini
+
+		echo "--> Enable redis"
+		sudo php5enmod redis
+		
+		sudo service php5-fpm restart
+	fi
+
+	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
+		sudo apt-get install -y php7.0-redis	
+	fi
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of redis for php"
 fi
@@ -1162,20 +1309,24 @@ fi
 # Install of uploadprogress for php
 ##########################################################################################
 if [[ $_php_install_uploadprogress_ = 'yes' ]]; then
-	
-	echo "--> Install uploadprogress"
-	sudo pecl install uploadprogress
-	sudo sh -c "echo 'extension=uploadprogress.so' > /etc/php5/mods-available/uploadprogress.ini"
 
-	echo "--> Configure redis.ini to point on the redis.so at the full path"
-	sudo sed -i "s,uploadprogress.so,$(sudo find / -name 'uploadprogress.so')," /etc/php5/mods-available/uploadprogress.ini
-
-	echo "--> Enable redis"
-	sudo php5enmod uploadprogress
+	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
 	
-	sudo service php5-fpm restart
-	echo "-> ------------------------------------------------------------------"
-	echo "-> End of install of uploadprogress for php"
+		echo "--> Install uploadprogress"
+		sudo pecl install uploadprogress
+		sudo sh -c "echo 'extension=uploadprogress.so' > /etc/php5/mods-available/uploadprogress.ini"
+
+		echo "--> Configure uploadprogress.ini to point on the redis.so at the full path"
+		sudo sed -i "s,uploadprogress.so,$(sudo find / -name 'uploadprogress.so')," /etc/php5/mods-available/uploadprogress.ini
+
+		echo "--> Enable redis"
+		sudo php5enmod uploadprogress
+		
+		sudo service php5-fpm restart
+		echo "-> ------------------------------------------------------------------"
+		echo "-> End of install of uploadprogress for php"
+
+	fi
 fi
 
 ##########################################################################################
@@ -1224,10 +1375,21 @@ if [[ $_install_mailcatcher_ = 'yes' ]]; then
 	echo "--> Install of mailcatcher, this service handle mail transit"
 	sudo gem install mailcatcher
 
-	if [[ $_install_php_ = 'yes' ]]; then 
-		sudo sh -c "echo '[mail function]\nsendmail_path=/usr/local/bin/catchmail' > /etc/php5/mods-available/mailcatcher.ini"
-		sudo php5enmod mailcatcher
-		sudo service php5-fpm restart
+	if [[ $_install_php_ = 'yes' ]]; then
+		if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
+			sudo sh -c "echo '[mail function]\nsendmail_path=/usr/local/bin/catchmail' > /etc/php5/mods-available/mailcatcher.ini"
+			sudo php5enmod mailcatcher
+			sudo service php5-fpm restart
+		fi
+
+		if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
+			sudo sh -c "echo '[mail function]\nsendmail_path=/usr/local/bin/catchmail' > /etc/php/mods-available/mailcatcher.ini"
+
+			#phpenmod is not active for now for php7
+			sudo ln -s /etc/php/mods-available/mailcatcher.ini /etc/php/7.0/cli/conf.d/20-mailcatcher.ini
+			sudo ln -s /etc/php/mods-available/mailcatcher.ini /etc/php/7.0/fpm/conf.d/20-mailcatcher.ini
+			sudo service php7.0-fpm restart
+		fi
 	fi
 	
 	echo "--> Launch mailcatcher at startup"
@@ -1469,7 +1631,7 @@ if [[ $_install_redis_ = 'yes' ]] ; then
 	echo "--> Set recommanded system vars to avoid latencies"
 	sudo sh -c "echo 1 > /proc/sys/vm/overcommit_memory"
 	sudo sh -c "echo never > /sys/kernel/mm/transparent_hugepage/enabled"
-	sudo sed -i "s,\"exit 0\",\"exit X\"," /etc/rc.local
+	sudo sed -i "s,\"exit 0\",\"exit X\"," /etc/rc.localip
 	sudo sed -i "s,exit 0,echo never > /sys/kernel/mm/transparent_hugepage/enabled\n\nexit 0," /etc/rc.local
 	sudo sed -i "s,\"exit X\",\"exit 0\"," /etc/rc.local
 	sudo sh -c "echo 512 > /proc/sys/net/core/somaxconn"
@@ -1484,7 +1646,7 @@ fi
 ##########################################################################################
 if [[ $_install_redis_commander_ = 'yes' ]] ; then
 	sudo apt-get install curl
-	curl -sL https://deb.nodesource.com/setup | sudo bash -
+	curl -sL https://deb.nodesource.com/setup_5.x | bash -
 	sudo apt-get install -y nodejs
 	sudo npm install -g redis-commander
 
@@ -1688,6 +1850,29 @@ if [[ ! $_solr_instance_url_ = '' ]] ; then
     sudo sed -i "s/<\!--__solr_instance__/ /" /var/www/default/index.html
     sudo sed -i "s/__solr_instance__-->//" /var/www/default/index.html
     sudo sed -i "s,__solr_instance_url__,$_solr_instance_url_," /var/www/default/index.html
+fi
+
+
+##########################################################################################
+# Install of elasticsearch
+##########################################################################################
+if [[ $_install_elastic_ = 'yes' ]]; then
+
+	sudo apt-get install openjdk-7-jdk
+
+	wget -qO - https://packages.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+	echo "deb http://packages.elastic.co/elasticsearch/2.x/debian stable main" | sudo tee -a /etc/apt/sources.list.d/elasticsearch-2.x.list
+	sudo apt-get update && sudo apt-get install elasticsearch
+	sudo service elasticsearch start
+
+	sudo sh -c 'echo "\nhttp.host: $(cat /etc/hostname)" >>  /etc/elasticsearch/elasticsearch.yml'
+
+	sudo update-rc.d elasticsearch defaults 95 10
+
+	sudo /usr/share/elasticsearch/bin/plugin -install royrusso/elasticsearch-HQ
+
+	echo "-> ------------------------------------------------------------------"
+	echo "-> End of install of elastic search"
 fi
 
 exit 0
