@@ -127,6 +127,9 @@ where options are :
 	${bold}--pound-backend-ip${normal} 		: (default: 127.0.0.1)
 	${bold}--pound-backend-port${normal} 		: (default: 8080)
 
+	${green}Required arguments if '--install-elastic=yes'${normal}
+	{bold}--elastic-url${normal} 		: http://{host}:9200/_plugin/hq/
+
 EOF
 )
 
@@ -393,6 +396,11 @@ do
 		--pound-backend-port=*)
 			_pound_backend_port_="${i#*=}"
 			shift;;
+
+		--elastic-url=*)
+			__elastic_url__="${i#*=}"
+			shift;;
+			
    		
     	--help)
     		echo -e "$usage"
@@ -1051,6 +1059,33 @@ EOF
 
 		fi
 	fi
+
+	##########################################################################################
+	# Install of redis for php / This block need to be before install of php7
+	##########################################################################################
+	if [[ $_php_install_redis_ = 'yes' ]]; then
+
+		echo "--> Install redis"
+		
+		if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then	
+			sudo pecl install redis
+			sudo sh -c "echo 'extension=redis.so' > /etc/php5/mods-available/redis.ini"
+
+			echo "--> Configure redis.ini to point on the redis.so at the full path"
+			sudo sed -i "s,redis.so,$(sudo find / -name 'redis.so')," /etc/php5/mods-available/redis.ini
+
+			echo "--> Enable redis"
+			sudo php5enmod redis
+			
+			sudo service php5-fpm restart
+		fi
+
+		if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
+			sudo apt-get install -y php7.0-redis	
+		fi
+		echo "-> ------------------------------------------------------------------"
+		echo "-> End of install of redis for php"
+	fi
 	
 	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
 		echo "-> Install PHP7 and some associated libs"
@@ -1278,32 +1313,6 @@ if [[ $_php_install_memcache_ = 'yes' ]]; then
 	echo "-> End of install of memcache for php"
 fi
 
-##########################################################################################
-# Install of redis for php
-##########################################################################################
-if [[ $_php_install_redis_ = 'yes' ]]; then
-
-	echo "--> Install redis"
-	
-	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then	
-		sudo pecl install redis
-		sudo sh -c "echo 'extension=redis.so' > /etc/php5/mods-available/redis.ini"
-
-		echo "--> Configure redis.ini to point on the redis.so at the full path"
-		sudo sed -i "s,redis.so,$(sudo find / -name 'redis.so')," /etc/php5/mods-available/redis.ini
-
-		echo "--> Enable redis"
-		sudo php5enmod redis
-		
-		sudo service php5-fpm restart
-	fi
-
-	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
-		sudo apt-get install -y php7.0-redis	
-	fi
-	echo "-> ------------------------------------------------------------------"
-	echo "-> End of install of redis for php"
-fi
 
 ##########################################################################################
 # Install of uploadprogress for php
@@ -1867,12 +1876,19 @@ if [[ $_install_elastic_ = 'yes' ]]; then
 
 	sudo sh -c 'echo "\nhttp.host: $(cat /etc/hostname)" >>  /etc/elasticsearch/elasticsearch.yml'
 
-	sudo update-rc.d elasticsearch defaults 95 10
+	sudo update-rc.d elasticsearch defaults
 
-	sudo /usr/share/elasticsearch/bin/plugin -install royrusso/elasticsearch-HQ
+	sudo /usr/share/elasticsearch/bin/plugin install royrusso/elasticsearch-HQ
 
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of elastic search"
+fi
+
+if [[ ! $__elastic_url__ = '' ]] ; then
+    echo "-> Enable elastic entry to index.html"
+    sudo sed -i "s/<\!--__elastic__/ /" /var/www/default/index.html
+    sudo sed -i "s/__elastic__-->//" /var/www/default/index.html
+    sudo sed -i "s,__elastic_url__,$__elastic_url__," /var/www/default/index.html
 fi
 
 exit 0
