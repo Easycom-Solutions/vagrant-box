@@ -1086,7 +1086,59 @@ EOF
 		echo "-> ------------------------------------------------------------------"
 		echo "-> End of install of redis for php"
 	fi
+
+	##########################################################################################
+	# Install of xdebug for php
+	##########################################################################################
+	if [[ $_php_install_xdebug_ = 'yes' ]]; then
+
+		if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
+		
+			echo "--> Install xdebug"
+			sudo pecl install xdebug
+			
+			file=$(cat <<EOF
+zend_extension=xdebug.so
+xdebug.remote_enable=1
+xdebug.remote_connect_back=1
+xdebug.profiler_enable_trigger = 1
+
+xdebug.profiler_output_dir=/tmp
+xdebug.profiler_output_name=cachegrind.out.%p-%H-%R
+
+EOF
+			)
+			sudo echo "$file" > xdebug.ini
+			sudo mv xdebug.ini /etc/php5/mods-available/
+
+			echo "--> Configure xdebug.ini to point on the xdebug.so at the full path"
+			sudo sed -i "s,xdebug.so,$(sudo find / -name 'xdebug.so')," /etc/php5/mods-available/xdebug.ini
+
+			echo "--> Enable xdebug"
+			sudo php5enmod xdebug
+			sudo service php5-fpm restart
+		fi
+
+		##########################################################################################
+		# Install Webgrind whenever php version is 5 or 7
+		##########################################################################################
+		echo "--> Install webgrind into /tools/webgrind path (will show graph user triggered session only)"
+		git clone https://github.com/jokkedk/webgrind.git
+		sudo mv webgrind /var/www/default/tools/
+		sudo apt-get install -y python graphviz
+		sudo ln -s /usr/bin/dot /usr/local/bin/dot
+		
+		echo "-> Enable webgrind entry to index.html"
+		sudo sed -i "s/<\!--__webgrind__/ /" /var/www/default/index.html
+		sudo sed -i "s/__webgrind__-->//" /var/www/default/index.html
+		
+		echo "-> ------------------------------------------------------------------"
+		echo "-> End of install of xdebug"
+	fi
 	
+	##########################################################################################
+	# Install of PHP7
+	##########################################################################################
 	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
 		echo "-> Install PHP7 and some associated libs"
 		sudo apt-get install -y php7.0-fpm php7.0-json php7.0-dev php7.0-imagick php7.0-gd php7.0-mcrypt php7.0-curl php7.0-mysql php7.0-bz2
@@ -1149,6 +1201,32 @@ EOF
 			sudo a2enconf php7-fpm
 			sudo service php7.0-fpm restart
 			sudo service apache2 restart
+		fi
+
+
+		##########################################################################################
+		# Install of xdebug for php
+		##########################################################################################
+		if [[ $_php_install_xdebug_ = 'yes' ]]; then
+		
+			echo "--> Install xdebug"
+			sudo apt-get install -y php7.0-xdebug
+			
+			file=$(cat <<EOF
+zend_extension=xdebug.so
+xdebug.remote_enable=1
+xdebug.remote_connect_back=1
+xdebug.profiler_enable_trigger = 1
+
+xdebug.profiler_output_dir=/tmp
+xdebug.profiler_output_name=cachegrind.out.%p-%H-%R
+
+EOF
+			)
+			sudo echo "$file" > xdebug.ini
+			sudo mv xdebug.ini /etc/php/mods-available/
+
+			sudo service php7.0-fpm restart
 		fi	
 	fi
 
@@ -1195,75 +1273,6 @@ EOF
 	echo "-> End of install of php"
 fi
 
-##########################################################################################
-# Install of xdebug for php
-##########################################################################################
-if [[ $_php_install_xdebug_ = 'yes' ]]; then
-
-
-	if [[ $_php_version_ = "php5" ]] || [[ $_php_version_ = "php5+7" ]]; then
-	
-		echo "--> Install xdebug"
-		sudo pecl install xdebug
-		
-		file=$(cat <<EOF
-zend_extension=xdebug.so
-xdebug.remote_enable=1
-xdebug.remote_connect_back=1
-xdebug.profiler_enable_trigger = 1
-
-xdebug.profiler_output_dir=/tmp
-xdebug.profiler_output_name=cachegrind.out.%p-%H-%R
-
-EOF
-		)
-		sudo echo "$file" > xdebug.ini
-		sudo mv xdebug.ini /etc/php5/mods-available/
-
-		echo "--> Configure xdebug.ini to point on the xdebug.so at the full path"
-		sudo sed -i "s,xdebug.so,$(sudo find / -name 'xdebug.so')," /etc/php5/mods-available/xdebug.ini
-
-		echo "--> Enable xdebug"
-		sudo php5enmod xdebug
-		sudo service php5-fpm restart
-	fi
-
-	if [[ $_php_version_ = "php7" ]] || [[ $_php_version_ = "php5+7" ]]; then
-	
-		echo "--> Install xdebug"
-		sudo apt-get install -y php7.0-xdebug
-		
-		file=$(cat <<EOF
-zend_extension=xdebug.so
-xdebug.remote_enable=1
-xdebug.remote_connect_back=1
-xdebug.profiler_enable_trigger = 1
-
-xdebug.profiler_output_dir=/tmp
-xdebug.profiler_output_name=cachegrind.out.%p-%H-%R
-
-EOF
-		)
-		sudo echo "$file" > xdebug.ini
-		sudo mv xdebug.ini /etc/php/mods-available/
-
-		sudo service php7.0-fpm restart
-	fi
-
-
-	echo "--> Install webgrind into /tools/webgrind path (will show graph user triggered session only)"
-	git clone https://github.com/jokkedk/webgrind.git
-	sudo mv webgrind /var/www/default/tools/
-	sudo apt-get install -y python graphviz
-	sudo ln -s /usr/bin/dot /usr/local/bin/dot
-	
-	echo "-> Enable webgrind entry to index.html"
-	sudo sed -i "s/<\!--__webgrind__/ /" /var/www/default/index.html
-	sudo sed -i "s/__webgrind__-->//" /var/www/default/index.html
-	
-	echo "-> ------------------------------------------------------------------"
-	echo "-> End of install of xdebug"
-fi
 
 ##########################################################################################
 # Install of memcache for php
@@ -1359,6 +1368,10 @@ if [[ $_php_install_n98magerun_ = 'yes' ]]; then
 	chmod +x ./n98-magerun.phar
 	sudo cp ./n98-magerun.phar /usr/local/bin/magerun
 	sudo rm ./n98-magerun.phar
+	if [[ $_php_version_ = "php5+7" ]]; then
+		echo "alias magerun='php5 /usr/local/bin/magerun'" >> ~/.bashrc
+		source ~/.bashrc
+	fi
 fi
 
 if [[ $_php_install_drush_ = 'yes' ]]; then
@@ -1640,7 +1653,7 @@ if [[ $_install_redis_ = 'yes' ]] ; then
 	echo "--> Set recommanded system vars to avoid latencies"
 	sudo sh -c "echo 1 > /proc/sys/vm/overcommit_memory"
 	sudo sh -c "echo never > /sys/kernel/mm/transparent_hugepage/enabled"
-	sudo sed -i "s,\"exit 0\",\"exit X\"," /etc/rc.localip
+	sudo sed -i "s,\"exit 0\",\"exit X\"," /etc/rc.local
 	sudo sed -i "s,exit 0,echo never > /sys/kernel/mm/transparent_hugepage/enabled\n\nexit 0," /etc/rc.local
 	sudo sed -i "s,\"exit X\",\"exit 0\"," /etc/rc.local
 	sudo sh -c "echo 512 > /proc/sys/net/core/somaxconn"
@@ -1867,7 +1880,7 @@ fi
 ##########################################################################################
 if [[ $_install_elastic_ = 'yes' ]]; then
 
-	sudo apt-get install openjdk-7-jdk
+	sudo apt-get install -y openjdk-7-jdk
 
 	wget -qO - https://packages.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
 	echo "deb http://packages.elastic.co/elasticsearch/2.x/debian stable main" | sudo tee -a /etc/apt/sources.list.d/elasticsearch-2.x.list
