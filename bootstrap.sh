@@ -741,12 +741,12 @@ if [[ $_install_mysql_server_ = 'yes' ]] || [[ $_install_mysql_client_ = 'yes' ]
 	#sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 1C4CBDCDCD2EFD2A
 	sudo sh -c 'wget -O - http://www.percona.com/redir/downloads/RPM-GPG-KEY-percona | gpg --import'
 	sudo sh -c 'gpg --armor --export 1C4CBDCDCD2EFD2A | apt-key add -'
-	sudo sh -c 'echo "deb http://repo.percona.com/apt wheezy main" > /etc/apt/sources.list.d/percona.list'
-	sudo sh -c 'echo "deb-src http://repo.percona.com/apt wheezy main" >> /etc/apt/sources.list.d/percona.list'
+	sudo sh -c 'echo "deb http://repo.percona.com/apt jessie main" > /etc/apt/sources.list.d/percona.list'
+	sudo sh -c 'echo "deb-src http://repo.percona.com/apt jessie main" >> /etc/apt/sources.list.d/percona.list'
 	sudo apt-get update
 	
 	echo "--> Installation of percona-server-client-56"
-	sudo apt-get install -y percona-server-client-5.6
+	sudo apt-get install -y --force-yes percona-server-client-5.6
 
 	echo "-> ------------------------------------------------------------------"
 	echo "-> End of install of percona-client"
@@ -757,7 +757,7 @@ if [[ $_install_mysql_server_ = 'yes' ]]; then
 	echo "--> Set '$_mysql_root_password_' as root password for mysql"
 	sudo sh -c "echo \"percona-server-server-5.6 percona-server-server/root_password password $_mysql_root_password_\" | debconf-set-selections"
 	sudo sh -c "echo \"percona-server-server-5.6 percona-server-server/root_password_again password $_mysql_root_password_\" | debconf-set-selections"
-	sudo apt-get install -y percona-server-server-5.6
+	sudo apt-get install -y --force-yes percona-server-server-5.6
 	echo "--> Execution of mysql_secure_installation"
 	echo -e "$_mysql_root_password_\nn\ny\n$DISALLOW_REMOTE_ACCESS_BY_ROOT\ny\ny" > tmp.txt
 	sudo mysql_secure_installation < tmp.txt
